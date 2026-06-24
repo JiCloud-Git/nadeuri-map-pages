@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>
+    html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
+    #debug { position: absolute; top: 0; left: 0; right: 0; padding: 8px; font-size: 11px;
+      font-family: -apple-system; background: #fee2e2; color: #991b1b; z-index: 999; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div id="map">Loading map…</div>
+  <div id="debug"></div>
+  <script>
+    window.onerror = function (msg, src, line, col, err) {
+      document.getElementById('debug').innerText = 'JS error: ' + msg + ' @ ' + line + ':' + col;
+      post({ type: 'error', message: String(msg) + ' @ ' + line + ':' + col });
+    };
+
+    function post(obj) {
+      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+    }
+
+    var KAKAO_JS_KEY = (new URLSearchParams(window.location.search)).get('appkey') || '';
+  </script>
+  <script
+    crossorigin="anonymous"
+    onerror="document.getElementById('debug').innerText='Failed to load Kakao SDK script'; post({type:'error', message:'Failed to load Kakao SDK script (network or key)'});"
+  ></script>
+  <script>
+    document.querySelector('script[crossorigin]').src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY;
+  </script>
+  <script>
+    var map = null;
+    var markers = [];
+
+    function clearMarkers() {
+      markers.forEach(function (m) { m.setMap(null); });
+      markers = [];
+    }
+
+    function pinContent(hexColor) {
+      return '<div style="width:26px;height:26px;border-radius:13px 13px 13px 3px;' +
+        'background:' + hexColor + ';border:2px solid #fff;' +
+        'transform:rotate(45deg);box-shadow:0 2px 6px rgba(0,0,0,0.25);"></div>';
+    }
+
+    function addPin(lat, lng, id, hexColor) {
+      var marker = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(lat, lng),
+        content: pinContent(hexColor),
+        yAnchor: 1,
+        clickable: true,
+      });
+      marker.setMap(map);
+      markers.push(marker);
+      setTimeout(function () {
+        var nodes = document.querySelectorAll('div[style*="rotate(45deg)"]');
+        var node = nodes[nodes.length - 1];
+        if (node) node.onclick = function () { post({ type: 'pinPress', id: id }); };
+      }, 50);
+    }
+
+    function addMyLocation(lat, lng) {
+      var content = '<div style="width:16px;height:16px;border-radius:8px;' +
+        'background:#3b82f6;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>';
+      var marker = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(lat, lng),
+        content: content,
+      });
+      marker.setMap(map);
+      markers.push(marker);
+    }
+
+    function render(payload) {
+      try {
+        if (typeof kakao === 'undefined') {
+          throw new Error('kakao SDK object is undefined — script failed to execute (domain not registered for this key)');
+        }
+        if (!map) {
+          map = new kakao.maps.Map(document.getElementById('map'), {
+            center: new kakao.maps.LatLng(payload.center.lat, payload.center.lng),
+            level: 5,
+          });
+        } else {
+          map.setCenter(new kakao.maps.LatLng(payload.center.lat, payload.center.lng));
+        }
+        clearMarkers();
+        (payload.pins || []).forEach(function (p) { addPin(p.lat, p.lng, p.id, p.color); });
+        if (payload.myLocation) addMyLocation(payload.myLocation.lat, payload.myLocation.lng);
+        document.getElementById('debug').innerText = '';
+      } catch (e) {
+        document.getElementById('debug').innerText = 'Map init error: ' + e.message;
+        post({ type: 'error', message: 'Map init error: ' + e.message });
+      }
+    }
+
+    function handleMessage(event) {
+      try {
+        var payload = JSON.parse(event.data);
+        if (payload.type === 'render') render(payload);
+      } catch (e) {
+        // ignore malformed messages
+      }
+    }
+
+    document.addEventListener('message', handleMessage);
+    window.addEventListener('message', handleMessage);
+    post({ type: 'ready' });
+  </script>
+</body>
+</html>
