@@ -29,7 +29,14 @@
     onerror="document.getElementById('debug').innerText='Failed to load Kakao SDK script'; post({type:'error', message:'Failed to load Kakao SDK script (network or key)'});"
   ></script>
   <script>
-    document.getElementById('kakao-sdk-script').src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY;
+    var sdkScript = document.getElementById('kakao-sdk-script');
+    sdkScript.onload = function () {
+      // kakao.maps.load waits for the SDK's own async sub-resources (core lib, services, etc.)
+      // to finish before the callback runs — calling Map()/CustomOverlay() before this fires
+      // throws "kakao is undefined" or similar even though sdk.js itself already executed.
+      kakao.maps.load(function () { window.kakaoMapsReady = true; post({ type: 'ready' }); });
+    };
+    sdkScript.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY + '&autoload=false';
   </script>
   <script>
     var map = null;
@@ -107,7 +114,6 @@
 
     document.addEventListener('message', handleMessage);
     window.addEventListener('message', handleMessage);
-    post({ type: 'ready' });
   </script>
 </body>
 </html>
