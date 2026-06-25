@@ -5,16 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
-    #debug { position: absolute; top: 0; left: 0; right: 0; padding: 8px; font-size: 11px;
-      font-family: -apple-system; background: #fee2e2; color: #991b1b; z-index: 999; word-break: break-all; }
   </style>
 </head>
 <body>
   <div id="map">Loading map…</div>
-  <div id="debug"></div>
   <script>
     window.onerror = function (msg, src, line, col, err) {
-      document.getElementById('debug').innerText = 'JS error: ' + msg + ' @ ' + line + ':' + col;
       post({ type: 'error', message: String(msg) + ' @ ' + line + ':' + col });
     };
 
@@ -26,7 +22,7 @@
   </script>
   <script
     id="kakao-sdk-script"
-    onerror="document.getElementById('debug').innerText='Failed to load Kakao SDK script'; post({type:'error', message:'Failed to load Kakao SDK script (network or key)'});"
+    onerror="post({type:'error', message:'Failed to load Kakao SDK script (network or key)'});"
   ></script>
   <script>
     var sdkScript = document.getElementById('kakao-sdk-script');
@@ -90,15 +86,20 @@
             center: new kakao.maps.LatLng(payload.center.lat, payload.center.lng),
             level: 5,
           });
+          // The WebView reports its layout size to the SDK asynchronously, so the map
+          // is often created before the container has its final width/height — without
+          // relayout() the tiles never load and the map stays blank/white.
+          setTimeout(function () {
+            map.relayout();
+            map.setCenter(new kakao.maps.LatLng(payload.center.lat, payload.center.lng));
+          }, 200);
         } else {
           map.setCenter(new kakao.maps.LatLng(payload.center.lat, payload.center.lng));
         }
         clearMarkers();
         (payload.pins || []).forEach(function (p) { addPin(p.lat, p.lng, p.id, p.color); });
         if (payload.myLocation) addMyLocation(payload.myLocation.lat, payload.myLocation.lng);
-        document.getElementById('debug').innerText = '';
       } catch (e) {
-        document.getElementById('debug').innerText = 'Map init error: ' + e.message;
         post({ type: 'error', message: 'Map init error: ' + e.message });
       }
     }
