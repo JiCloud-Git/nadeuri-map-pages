@@ -25,11 +25,11 @@
     var KAKAO_JS_KEY = (new URLSearchParams(window.location.search)).get('appkey') || '';
   </script>
   <script
-    crossorigin="anonymous"
+    id="kakao-sdk-script"
     onerror="document.getElementById('debug').innerText='Failed to load Kakao SDK script'; post({type:'error', message:'Failed to load Kakao SDK script (network or key)'});"
   ></script>
   <script>
-    document.querySelector('script[crossorigin]').src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY;
+    document.getElementById('kakao-sdk-script').src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + KAKAO_JS_KEY;
   </script>
   <script>
     var map = null;
